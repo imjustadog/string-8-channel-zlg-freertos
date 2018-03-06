@@ -52,6 +52,7 @@
 
 /* USER CODE BEGIN Includes */
 #include <math.h>
+#include "CW201x.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -85,6 +86,8 @@ osSemaphoreId CountingSem_dmacpltHandle;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
+/*********************** BATTERY *************************/	
+extern STRUCT_CW_BATTERY   cw_bat;
 
 /****************** CAPRURE FREQUENCY ********************/	
 
@@ -324,7 +327,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+	int ret;
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -341,8 +344,6 @@ int main(void)
 	htim[5] = &htim3;
 	htim[6] = &htim8;
 	htim[7] = &htim8;
-	
-	read_ID();
 	
 	cmd_cfg_set.send_set.cmd[0] = 0xAB;
   cmd_cfg_set.send_set.cmd[1] = 0xBC;
@@ -370,7 +371,10 @@ int main(void)
   MX_TIM8_Init();
 
   /* USER CODE BEGIN 2 */
-  __HAL_UART_ENABLE_IT(&huart4, UART_IT_IDLE); 
+  ret = cw_bat_init();
+	
+	read_ID();
+	cw_bat_work();
   /* USER CODE END 2 */
 
   /* USER CODE BEGIN RTOS_MUTEX */

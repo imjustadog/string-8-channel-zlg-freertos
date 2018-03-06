@@ -10,6 +10,7 @@
       <TargetName>string-8-channel-zlg-freertos</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
+      <pCCUsed>5060528::V5.06 update 5 (build 528)::ARMCC</pCCUsed>
       <uAC6>0</uAC6>
       <TargetOption>
         <TargetCommonOption>
@@ -453,6 +454,16 @@
               <FileName>stm32f1xx_hal_msp.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Src/stm32f1xx_hal_msp.c</FilePath>
+            </File>
+            <File>
+              <FileName>CW201x.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Src\CW201x.c</FilePath>
+            </File>
+            <File>
+              <FileName>IIC.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Src\IIC.c</FilePath>
             </File>
           </Files>
         </Group>

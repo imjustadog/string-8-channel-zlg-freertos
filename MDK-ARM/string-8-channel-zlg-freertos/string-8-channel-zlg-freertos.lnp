@@ -13,6 +13,8 @@
 "string-8-channel-zlg-freertos\freertos.o"
 "string-8-channel-zlg-freertos\main.o"
 "string-8-channel-zlg-freertos\stm32f1xx_hal_msp.o"
+"string-8-channel-zlg-freertos\cw201x.o"
+"string-8-channel-zlg-freertos\iic.o"
 "string-8-channel-zlg-freertos\system_stm32f1xx.o"
 "string-8-channel-zlg-freertos\stm32f1xx_hal_adc_ex.o"
 "string-8-channel-zlg-freertos\stm32f1xx_hal_rcc_ex.o"
