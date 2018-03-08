@@ -267,12 +267,11 @@ void DMA1_Channel7_IRQHandler(void)
 void USART3_IRQHandler(void)
 {
   /* USER CODE BEGIN USART3_IRQn 0 */
-  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
   /* USER CODE END USART3_IRQn 0 */
   HAL_UART_IRQHandler(&huart3);
   /* USER CODE BEGIN USART3_IRQn 1 */
-  xSemaphoreGiveFromISR(BinarySem_zlgHandle, &xHigherPriorityTaskWoken);
-	portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+
   /* USER CODE END USART3_IRQn 1 */
 }
 
@@ -296,12 +295,11 @@ void TIM5_IRQHandler(void)
 void UART4_IRQHandler(void)
 {
   /* USER CODE BEGIN UART4_IRQn 0 */
-  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+  
   /* USER CODE END UART4_IRQn 0 */
   HAL_UART_IRQHandler(&huart4);
   /* USER CODE BEGIN UART4_IRQn 1 */
-	xSemaphoreGiveFromISR(BinarySem_485Handle, &xHigherPriorityTaskWoken);
-	portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+
   /* USER CODE END UART4_IRQn 1 */
 }
 

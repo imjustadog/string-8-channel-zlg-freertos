@@ -88,8 +88,13 @@ osSemaphoreId CountingSem_dmacpltHandle;
 /* Private variables ---------------------------------------------------------*/
 /*********************** BATTERY *************************/	
 extern STRUCT_CW_BATTERY   cw_bat;
+#define GPIO_BAT                      GPIOA
+#define GPIO_PIN_BAT1                 GPIO_PIN_10
+#define GPIO_PIN_BAT2                 GPIO_PIN_9
 
 /****************** CAPRURE FREQUENCY ********************/	
+#define GPIO_SWITCH                   GPIOA
+#define GPIO_PIN_SWITCH               GPIO_PIN_4
 
 uint16_t input_capture[8][30];
 float avrg_freq[8];
@@ -146,14 +151,14 @@ GPIO_TypeDef* ADDR_GPIO[8] = {
   GPIOB,
 	GPIOB,
 	GPIOC,
-	GPIOC,
-	GPIOA};
+	GPIOA,
+	GPIOC};
 
 uint16_t ADDR_PIN[8] = {
 	GPIO_PIN_4,
   GPIO_PIN_5,
-	GPIO_PIN_12,
 	GPIO_PIN_13,
+	GPIO_PIN_12,
 	GPIO_PIN_9,
 	GPIO_PIN_13,
 	GPIO_PIN_12,
@@ -211,7 +216,6 @@ enum{
 	GET_INFO = 0,
 	SET_INFO,
 	RESET_ZLG,
-	SHOW_ADDR,
 	WAITFORCMD,
 	SLEEP,
 };	
@@ -242,12 +246,9 @@ union union_send
 	uint8_t send_buf[72];
 	struct struct_send send_set;
 }cmd_cfg_set;
-uint8_t ack_cfg_set[7] = {0xAB,0xBC,0xCD,0xD6,0x20,0x01,0x00};
+uint8_t ack_cfg_set[7];
 
-uint8_t cmd_reset[9] = {0xAB,0xBC,0xCD,0xD9,0x20,0x01,0x00,0x01,0x2F};
-
-uint8_t cmd_show_addr[5] = {0xDE, 0xDF, 0xEF, 0xD3, 0x01};
-uint8_t ack_show_addr[5] = {0xDE, 0xDF, 0xEF, 0xD3, 0x00};
+uint8_t cmd_reset[9];
 
 uint8_t cmd_sleep[5] = {0xDE, 0xDF, 0xEF, 0xD8, 0x01};
 
@@ -276,30 +277,48 @@ void Callback_timer1s(void const * argument);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+void show_485(uint8_t *buf, int len)
+{
+	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_2, GPIO_PIN_SET); // 485 SEND ENABLE
+	HAL_UART_Transmit(&huart4,buf,len,1000);
+	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_2, GPIO_PIN_RESET); // 485 RECV ENABLE
+}
+
+int calc_checksum(uint8_t *buf, int len)
+{
+	int checksum = 0;
+	int i;
+	for(i = 0;i < len;i ++)
+		checksum += buf[i];
+	return checksum;
+}
+
 void read_ID()
 {
 	int i;
 	board_num1 = 0;
 	board_num2 = 0;
+	
 	for(i = 0;i < 4;i ++)
 	{
-		if(HAL_GPIO_ReadPin(ADDR_GPIO[i], ADDR_PIN[i]) == GPIO_PIN_SET)
+		if(HAL_GPIO_ReadPin(ADDR_GPIO[i], ADDR_PIN[i]) == GPIO_PIN_RESET)
 		{
 			board_num1 |= (1 << i);
 		}
 	}
 	for(i = 0;i < 4;i ++)
 	{
-		if(HAL_GPIO_ReadPin(ADDR_GPIO[i + 4], ADDR_PIN[i + 4]) == GPIO_PIN_SET)
+		if(HAL_GPIO_ReadPin(ADDR_GPIO[i + 4], ADDR_PIN[i + 4]) == GPIO_PIN_RESET)
 		{
 			board_num2 |= (1 << i);
 		}
 	}
-	board_num1=1;
-	board_num2=1;
 	
 	data_buf[1] = board_num1;
 	data_buf[2] = board_num2;
+	
+	reply_buf[1] = board_num1;
+	reply_buf[2] = board_num2;
 }
 
 void write_to_data_buf(int num,uint16_t Freq, uint16_t Temp)
@@ -328,6 +347,7 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
 	int ret;
+	int i;
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -349,6 +369,11 @@ int main(void)
   cmd_cfg_set.send_set.cmd[1] = 0xBC;
   cmd_cfg_set.send_set.cmd[2] = 0xCD;
   cmd_cfg_set.send_set.cmd[3] = 0xD6;
+	
+	cmd_reset[0] = 0xAB;
+	cmd_reset[1] = 0xBC;
+	cmd_reset[2] = 0xCD;
+	cmd_reset[3] = 0xD9;
 
   /* USER CODE END Init */
 
@@ -400,6 +425,15 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
+	xSemaphoreTake(BinarySem_captureHandle,portMAX_DELAY);
+	xSemaphoreTake(BinarySem_zlgHandle,portMAX_DELAY);
+	xSemaphoreTake(BinarySem_485Handle,portMAX_DELAY);
+	
+	for(i = 0;i < 8;i ++)
+	{
+		xSemaphoreTake(CountingSem_dmacpltHandle,portMAX_DELAY);
+	}
+	
   /* USER CODE END RTOS_SEMAPHORES */
 
   /* Create the timer(s) */
@@ -425,7 +459,7 @@ int main(void)
   TASK_CAPTUREHandle = osThreadCreate(osThread(TASK_CAPTURE), NULL);
 
   /* definition and creation of TASK_485 */
-  osThreadDef(TASK_485, FUNC_485, osPriorityNormal, 0, 64);
+  osThreadDef(TASK_485, FUNC_485, osPriorityNormal, 0, 128);
   TASK_485Handle = osThreadCreate(osThread(TASK_485), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
@@ -865,11 +899,17 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_7|GPIO_PIN_8 
-                          |GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_11|GPIO_PIN_15, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4|GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9 
+                          |GPIO_PIN_10|GPIO_PIN_11|GPIO_PIN_15, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2|GPIO_PIN_14|GPIO_PIN_15|GPIO_PIN_6, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14|GPIO_PIN_15|GPIO_PIN_6, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_6|GPIO_PIN_7, GPIO_PIN_RESET);
@@ -926,7 +966,20 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+	if(huart == &huart3)
+	{
+		xSemaphoreGiveFromISR(BinarySem_zlgHandle, &xHigherPriorityTaskWoken);
+		portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+	}
+	else if(huart == &huart4)
+	{
+		xSemaphoreGiveFromISR(BinarySem_485Handle, &xHigherPriorityTaskWoken);
+		portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+	}
+}
 /* USER CODE END 4 */
 
 /* FUNC_BAT function */
@@ -937,7 +990,12 @@ void FUNC_BAT(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+		osDelay(500);
+		HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT1, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT2, GPIO_PIN_RESET);
+    osDelay(500);
+		HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT1, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT2, GPIO_PIN_SET);
   }
   /* USER CODE END 5 */ 
 }
@@ -947,10 +1005,13 @@ void FUNC_ZLG(void const * argument)
 {
   /* USER CODE BEGIN FUNC_ZLG */
 	BaseType_t pdsem = pdFALSE;
-	uint8_t addr1_read, addr2_read, channel_read;
-	uint8_t checksum;
-	uint8_t i,len;
-	HAL_UART_Receive_DMA(&huart3,ack_cfg_get.recv_buf,sizeof(ack_cfg_get.recv_buf));
+	uint8_t dev_type;
+	uint8_t channel_read;
+	uint8_t addr1_read, addr2_read;
+	uint8_t dest1_read, dest2_read;
+	uint8_t dev_info1, dev_info2;
+	osDelay(500);
+	HAL_UART_Receive_IT(&huart3,ack_cfg_get.recv_buf,sizeof(ack_cfg_get.recv_buf));
 	HAL_UART_Transmit(&huart3,cmd_cfg_get,sizeof(cmd_cfg_get),1000);
   /* Infinite loop */
   for(;;)
@@ -962,61 +1023,63 @@ void FUNC_ZLG(void const * argument)
 			{
 				case GET_INFO:
 				{
+					//show_485(ack_cfg_get.recv_buf,sizeof(ack_cfg_get.recv_buf));
+					
+					dev_type = ack_cfg_get.recv_analy.dev_info[32];
 					channel_read = ack_cfg_get.recv_analy.dev_info[33];
 					addr1_read = ack_cfg_get.recv_analy.dev_info[36];
 					addr2_read = ack_cfg_get.recv_analy.dev_info[37];
-					if(channel_read != channel || addr1_read != board_num1 || addr2_read != board_num2)
+					dest1_read = ack_cfg_get.recv_analy.dev_info[46];
+					dest2_read = ack_cfg_get.recv_analy.dev_info[47];
+					dev_info1 = ack_cfg_get.recv_analy.status[1];
+					dev_info2 = ack_cfg_get.recv_analy.status[2];
+					if(channel_read != channel || addr1_read != board_num1 || addr2_read != board_num2 || dest1_read != 0 || dest2_read != 0 ||dev_type != 0)
 					{
 						cmd_cfg_set.send_set.local_addr[0] = addr1_read;
 						cmd_cfg_set.send_set.local_addr[1] = addr2_read;
 						memcpy(cmd_cfg_set.send_set.dev_info, ack_cfg_get.recv_analy.dev_info, 65);
+						cmd_cfg_set.send_set.dev_info[32] = 0;  //work as enddevice
 						cmd_cfg_set.send_set.dev_info[33] = channel;  //use channel 11
 						cmd_cfg_set.send_set.dev_info[36] = board_num1;  //local address high 8
 						cmd_cfg_set.send_set.dev_info[37] = board_num2;  //local address low 8
 						cmd_cfg_set.send_set.dev_info[46] = 0x00;  //remote address high 8
 						cmd_cfg_set.send_set.dev_info[47] = 0x00;  //remote address low 8
-						checksum = 0;
-						len = sizeof(cmd_cfg_set.send_buf) - 1;
-						for(i = 0;i < len;i ++)
-							checksum += cmd_cfg_set.send_buf[i];
-						cmd_cfg_set.send_set.veri = checksum;
-						HAL_UART_Receive_DMA(&huart3,ack_cfg_set,sizeof(ack_cfg_set));
+						cmd_cfg_set.send_set.veri = calc_checksum(cmd_cfg_set.send_buf, sizeof(cmd_cfg_set.send_buf) - 1);
+						HAL_UART_Receive_IT(&huart3,ack_cfg_set,sizeof(ack_cfg_set));
 						HAL_UART_Transmit(&huart3,cmd_cfg_set.send_buf,sizeof(cmd_cfg_set.send_buf),1000);
 						ZLGSTATE = SET_INFO;
 					}
 					else
 					{
-						HAL_UART_Receive_DMA(&huart3,ack_show_addr,sizeof(ack_show_addr));
-						HAL_UART_Transmit(&huart3,cmd_show_addr,sizeof(cmd_show_addr),1000);
-						ZLGSTATE = SHOW_ADDR;
+						HAL_UART_Receive_IT(&huart3,order_buf,sizeof(order_buf));
+						ZLGSTATE = WAITFORCMD;
 					}
 					break;
 				}
 				case SET_INFO:
 				{
+					//show_485(ack_cfg_set,sizeof(ack_cfg_set));
+					
 					if(ack_cfg_set[sizeof(ack_cfg_set)-1] == 0x00)
 					{
+						cmd_reset[4] = addr1_read;
+						cmd_reset[5] = addr2_read;
+						cmd_reset[6] = dev_info1;
+						cmd_reset[7] = dev_info2;
+						cmd_reset[8] = calc_checksum(cmd_reset, sizeof(cmd_reset) - 1);
 						HAL_UART_Transmit(&huart3,cmd_reset,sizeof(cmd_reset),1000);
+						
+						//show_485(cmd_reset,sizeof(cmd_reset));
+						
 						osDelay(500);
-						ZLGSTATE = RESET_ZLG;
-					}
-					break;
-				}
-				case RESET_ZLG:
-				{
-					HAL_UART_Receive_DMA(&huart3,ack_show_addr,sizeof(ack_show_addr));
-					HAL_UART_Transmit(&huart3,cmd_show_addr,sizeof(cmd_show_addr),1000);
-					ZLGSTATE = SHOW_ADDR;
-					break;
-				}
-				case SHOW_ADDR:
-				{
-					if(ack_show_addr[sizeof(ack_show_addr)-1] == 0x00)
+						HAL_UART_Receive_IT(&huart3,order_buf,sizeof(order_buf));
 						ZLGSTATE = WAITFORCMD;
+					}
 					break;
 				}
 				case WAITFORCMD:
 				{
+					HAL_UART_Receive_IT(&huart3,order_buf,sizeof(order_buf));
 					break;
 				}
 				default:
@@ -1035,7 +1098,7 @@ void FUNC_CAPTURE(void const * argument)
 {
   /* USER CODE BEGIN FUNC_CAPTURE */
 	BaseType_t pdsem = pdFALSE;
-	unsigned int i,j,k,channel;
+	unsigned int i,j,channel;
 	uint16_t interval[30] = {0};
 	float Frequency = 0;
   float Temperature = 0;
@@ -1047,6 +1110,9 @@ void FUNC_CAPTURE(void const * argument)
 		pdsem = xSemaphoreTake(BinarySem_captureHandle,portMAX_DELAY);
 		if(pdsem == pdTRUE)
 		{
+			HAL_GPIO_WritePin(GPIO_SWITCH, GPIO_PIN_SWITCH, GPIO_PIN_SET);
+			HAL_Delay(20);
+			
 			i = 1800;	
 			while(i>=800)
 			{
@@ -1078,7 +1144,8 @@ void FUNC_CAPTURE(void const * argument)
 				{  
 					 __nop();__nop();__nop();__nop();__nop();__nop();__nop();__nop();__nop();__nop();
 					 j = j - 1;
-				}    
+				}  
+				
 				i = i - 1; 
 			}
 			HAL_GPIO_WritePin(STRING_GPIO[1], STRING_PIN[1], GPIO_PIN_RESET);
@@ -1088,15 +1155,25 @@ void FUNC_CAPTURE(void const * argument)
 			
 			HAL_Delay(20);
 			
-			for(k = 0;k < 8;k ++)
-			{
-				HAL_TIM_IC_Start_DMA(htim[i], TIM_CHANNEL[i], (uint32_t *)input_capture[i], dma_size);
-			}
+			HAL_TIM_IC_Start_DMA(htim[6], TIM_CHANNEL[6], (uint32_t *)input_capture[6], dma_size);
+			HAL_TIM_IC_Start_DMA(htim[7], TIM_CHANNEL[7], (uint32_t *)input_capture[7], dma_size);
+			xSemaphoreTake(CountingSem_dmacpltHandle, 100 / portTICK_PERIOD_MS);
+			xSemaphoreTake(CountingSem_dmacpltHandle, 100 / portTICK_PERIOD_MS);
 			
-			for(k = 0;k < 8;k ++)
-			{
-				pdsem = xSemaphoreTake(CountingSem_dmacpltHandle, 100 / portTICK_PERIOD_MS);
-			}
+			HAL_TIM_IC_Start_DMA(htim[0], TIM_CHANNEL[0], (uint32_t *)input_capture[0], dma_size);
+			HAL_TIM_IC_Start_DMA(htim[1], TIM_CHANNEL[1], (uint32_t *)input_capture[1], dma_size);
+			HAL_TIM_IC_Start_DMA(htim[2], TIM_CHANNEL[2], (uint32_t *)input_capture[2], dma_size);
+			HAL_TIM_IC_Start_DMA(htim[3], TIM_CHANNEL[3], (uint32_t *)input_capture[3], dma_size);
+			HAL_TIM_IC_Start_DMA(htim[4], TIM_CHANNEL[4], (uint32_t *)input_capture[4], dma_size);
+			HAL_TIM_IC_Start_DMA(htim[5], TIM_CHANNEL[5], (uint32_t *)input_capture[5], dma_size);
+			xSemaphoreTake(CountingSem_dmacpltHandle, 100 / portTICK_PERIOD_MS);
+			xSemaphoreTake(CountingSem_dmacpltHandle, 100 / portTICK_PERIOD_MS);
+			xSemaphoreTake(CountingSem_dmacpltHandle, 100 / portTICK_PERIOD_MS);
+			xSemaphoreTake(CountingSem_dmacpltHandle, 100 / portTICK_PERIOD_MS);
+			xSemaphoreTake(CountingSem_dmacpltHandle, 100 / portTICK_PERIOD_MS);
+			xSemaphoreTake(CountingSem_dmacpltHandle, 100 / portTICK_PERIOD_MS);
+			
+			HAL_GPIO_WritePin(GPIO_SWITCH, GPIO_PIN_SWITCH, GPIO_PIN_RESET);
 			
 			for(channel = 0; channel < 8; channel ++)
 			{
@@ -1126,6 +1203,9 @@ void FUNC_CAPTURE(void const * argument)
 				Temperature = (1.0f / (A + B * temp_log + C * temp_log * temp_log * temp_log) - 273.2f) * 100.0f; 
 				write_to_data_buf(i,(uint16_t)(Frequency),(uint16_t)(Temperature));	
 			}
+			
+			HAL_UART_Transmit(&huart3,data_buf,sizeof(data_buf),1000);
+			//show_485(data_buf, sizeof(data_buf));
 		}
   }
   /* USER CODE END FUNC_CAPTURE */
@@ -1136,13 +1216,22 @@ void FUNC_485(void const * argument)
 {
   /* USER CODE BEGIN FUNC_485 */
 	BaseType_t pdsem = pdFALSE;
-	HAL_UART_Receive_DMA(&huart4,rxbuf_485,len_485);
+	HAL_UART_Receive_IT(&huart4,rxbuf_485,len_485);
   /* Infinite loop */
   for(;;)
   {
 		pdsem = xSemaphoreTake(BinarySem_485Handle,portMAX_DELAY);
-		if(pdsem == pdTRUE) {
-			HAL_UART_Transmit(&huart4,rxbuf_485,len_485,1000);
+		if(pdsem == pdTRUE) 
+		{
+			//xSemaphoreGive(BinarySem_captureHandle);
+			/*HAL_GPIO_WritePin(GPIOD, GPIO_PIN_2, GPIO_PIN_SET); // 485 SEND ENABLE
+			
+			read_ID();
+			HAL_UART_Transmit(&huart4,&board_num1,1,1000);
+			HAL_UART_Transmit(&huart4,&board_num2,1,1000);*/
+			
+			HAL_GPIO_WritePin(GPIOD, GPIO_PIN_2, GPIO_PIN_RESET); // 485 RECV ENABLE
+			HAL_UART_Receive_IT(&huart4,rxbuf_485,len_485);
 		}
   }
   /* USER CODE END FUNC_485 */
