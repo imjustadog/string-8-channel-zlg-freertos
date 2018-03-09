@@ -177,12 +177,11 @@ void SysTick_Handler(void)
 void DMA1_Channel1_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Channel1_IRQn 0 */
-  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
   /* USER CODE END DMA1_Channel1_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_tim2_ch3);
   /* USER CODE BEGIN DMA1_Channel1_IRQn 1 */
-  xSemaphoreGiveFromISR(CountingSem_dmacpltHandle, &xHigherPriorityTaskWoken);
-	portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+
   /* USER CODE END DMA1_Channel1_IRQn 1 */
 }
 
@@ -192,12 +191,11 @@ void DMA1_Channel1_IRQHandler(void)
 void DMA1_Channel2_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Channel2_IRQn 0 */
-  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
   /* USER CODE END DMA1_Channel2_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_tim3_ch3);
   /* USER CODE BEGIN DMA1_Channel2_IRQn 1 */
-  xSemaphoreGiveFromISR(CountingSem_dmacpltHandle, &xHigherPriorityTaskWoken);
-	portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+
   /* USER CODE END DMA1_Channel2_IRQn 1 */
 }
 
@@ -207,12 +205,11 @@ void DMA1_Channel2_IRQHandler(void)
 void DMA1_Channel3_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Channel3_IRQn 0 */
-  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
   /* USER CODE END DMA1_Channel3_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_tim3_ch4_up);
   /* USER CODE BEGIN DMA1_Channel3_IRQn 1 */
-  xSemaphoreGiveFromISR(CountingSem_dmacpltHandle, &xHigherPriorityTaskWoken);
-	portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+
   /* USER CODE END DMA1_Channel3_IRQn 1 */
 }
 
@@ -222,12 +219,11 @@ void DMA1_Channel3_IRQHandler(void)
 void DMA1_Channel5_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Channel5_IRQn 0 */
-  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
   /* USER CODE END DMA1_Channel5_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_tim4_ch3);
   /* USER CODE BEGIN DMA1_Channel5_IRQn 1 */
-  xSemaphoreGiveFromISR(CountingSem_dmacpltHandle, &xHigherPriorityTaskWoken);
-	portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+
   /* USER CODE END DMA1_Channel5_IRQn 1 */
 }
 
@@ -237,12 +233,11 @@ void DMA1_Channel5_IRQHandler(void)
 void DMA1_Channel6_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Channel6_IRQn 0 */
-  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
   /* USER CODE END DMA1_Channel6_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_tim3_ch1_trig);
   /* USER CODE BEGIN DMA1_Channel6_IRQn 1 */
-  xSemaphoreGiveFromISR(CountingSem_dmacpltHandle, &xHigherPriorityTaskWoken);
-	portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+
   /* USER CODE END DMA1_Channel6_IRQn 1 */
 }
 
@@ -252,12 +247,11 @@ void DMA1_Channel6_IRQHandler(void)
 void DMA1_Channel7_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Channel7_IRQn 0 */
-  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
   /* USER CODE END DMA1_Channel7_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_tim2_ch2_ch4);
   /* USER CODE BEGIN DMA1_Channel7_IRQn 1 */
-  xSemaphoreGiveFromISR(CountingSem_dmacpltHandle, &xHigherPriorityTaskWoken);
-	portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+
   /* USER CODE END DMA1_Channel7_IRQn 1 */
 }
 
@@ -309,12 +303,11 @@ void UART4_IRQHandler(void)
 void DMA2_Channel1_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA2_Channel1_IRQn 0 */
-	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
   /* USER CODE END DMA2_Channel1_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_tim8_ch3_up);
   /* USER CODE BEGIN DMA2_Channel1_IRQn 1 */
-  xSemaphoreGiveFromISR(CountingSem_dmacpltHandle, &xHigherPriorityTaskWoken);
-	portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+
   /* USER CODE END DMA2_Channel1_IRQn 1 */
 }
 
@@ -324,12 +317,11 @@ void DMA2_Channel1_IRQHandler(void)
 void DMA2_Channel2_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA2_Channel2_IRQn 0 */
-	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
   /* USER CODE END DMA2_Channel2_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_tim8_ch4_trig_com);
   /* USER CODE BEGIN DMA2_Channel2_IRQn 1 */
-  xSemaphoreGiveFromISR(CountingSem_dmacpltHandle, &xHigherPriorityTaskWoken);
-	portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+
   /* USER CODE END DMA2_Channel2_IRQn 1 */
 }
 

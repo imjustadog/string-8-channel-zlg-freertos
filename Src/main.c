@@ -82,12 +82,16 @@ osTimerId Timer1sHandle;
 osSemaphoreId BinarySem_captureHandle;
 osSemaphoreId BinarySem_zlgHandle;
 osSemaphoreId BinarySem_485Handle;
+osSemaphoreId BinarySem_batHandle;
 osSemaphoreId CountingSem_dmacpltHandle;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 /*********************** BATTERY *************************/	
 extern STRUCT_CW_BATTERY   cw_bat;
+int bat_count = 0;
+int bat_interval = 30;
+
 #define GPIO_BAT                      GPIOA
 #define GPIO_PIN_BAT1                 GPIO_PIN_10
 #define GPIO_PIN_BAT2                 GPIO_PIN_9
@@ -98,7 +102,10 @@ extern STRUCT_CW_BATTERY   cw_bat;
 
 uint16_t input_capture[8][30];
 float avrg_freq[8];
-int dma_size = 25;
+int dma_size = 12;
+int capture_count = 0;
+int capture_interval = 3;
+
 
 GPIO_TypeDef* STRING_GPIO[8] = {
 	GPIOC, 
@@ -211,6 +218,8 @@ uint8_t rxbuf_485[100];
 /*********************** ZLG 5168 *************************/	
 
 uint8_t channel = 11;
+uint8_t addr1_coord = 0xFF;
+uint8_t addr2_coord = 0xFF;
 	
 enum{
 	GET_INFO = 0,
@@ -396,6 +405,8 @@ int main(void)
   MX_TIM8_Init();
 
   /* USER CODE BEGIN 2 */
+	HAL_Delay(200);
+	
   ret = cw_bat_init();
 	
 	read_ID();
@@ -419,6 +430,10 @@ int main(void)
   osSemaphoreDef(BinarySem_485);
   BinarySem_485Handle = osSemaphoreCreate(osSemaphore(BinarySem_485), 1);
 
+  /* definition and creation of BinarySem_bat */
+  osSemaphoreDef(BinarySem_bat);
+  BinarySem_batHandle = osSemaphoreCreate(osSemaphore(BinarySem_bat), 1);
+
   /* definition and creation of CountingSem_dmacplt */
   osSemaphoreDef(CountingSem_dmacplt);
   CountingSem_dmacpltHandle = osSemaphoreCreate(osSemaphore(CountingSem_dmacplt), 8);
@@ -428,6 +443,7 @@ int main(void)
 	xSemaphoreTake(BinarySem_captureHandle,portMAX_DELAY);
 	xSemaphoreTake(BinarySem_zlgHandle,portMAX_DELAY);
 	xSemaphoreTake(BinarySem_485Handle,portMAX_DELAY);
+	xSemaphoreTake(BinarySem_batHandle,portMAX_DELAY);
 	
 	for(i = 0;i < 8;i ++)
 	{
@@ -443,6 +459,7 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
+	osTimerStart(Timer1sHandle,1000);
   /* USER CODE END RTOS_TIMERS */
 
   /* Create the thread(s) */
@@ -650,7 +667,7 @@ static void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 0;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 0;
+  htim2.Init.Period = 65535;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_IC_Init(&htim2) != HAL_OK)
@@ -691,7 +708,7 @@ static void MX_TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 0;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 0;
+  htim3.Init.Period = 65535;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_IC_Init(&htim3) != HAL_OK)
@@ -737,7 +754,7 @@ static void MX_TIM4_Init(void)
   htim4.Instance = TIM4;
   htim4.Init.Prescaler = 0;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 0;
+  htim4.Init.Period = 65535;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_IC_Init(&htim4) != HAL_OK)
@@ -773,7 +790,7 @@ static void MX_TIM8_Init(void)
   htim8.Instance = TIM8;
   htim8.Init.Prescaler = 0;
   htim8.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim8.Init.Period = 0;
+  htim8.Init.Period = 65535;
   htim8.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim8.Init.RepetitionCounter = 0;
   htim8.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -849,8 +866,8 @@ static void MX_USART3_UART_Init(void)
 static void MX_DMA_Init(void) 
 {
   /* DMA controller clock enable */
-  __HAL_RCC_DMA1_CLK_ENABLE();
   __HAL_RCC_DMA2_CLK_ENABLE();
+  __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
   /* DMA1_Channel1_IRQn interrupt configuration */
@@ -980,22 +997,25 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 	}
 }
+
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
+{
+	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+	xSemaphoreGiveFromISR(CountingSem_dmacpltHandle, &xHigherPriorityTaskWoken);
+	portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+}
 /* USER CODE END 4 */
 
 /* FUNC_BAT function */
 void FUNC_BAT(void const * argument)
 {
-
   /* USER CODE BEGIN 5 */
+	BaseType_t pdsem = pdFALSE;
   /* Infinite loop */
   for(;;)
   {
-		osDelay(500);
-		HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT1, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT2, GPIO_PIN_RESET);
-    osDelay(500);
-		HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT1, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT2, GPIO_PIN_SET);
+		pdsem = xSemaphoreTake(BinarySem_batHandle, 500 / portTICK_PERIOD_MS);
+		HAL_GPIO_TogglePin(GPIO_BAT, GPIO_PIN_BAT1);
   }
   /* USER CODE END 5 */ 
 }
@@ -1010,7 +1030,7 @@ void FUNC_ZLG(void const * argument)
 	uint8_t addr1_read, addr2_read;
 	uint8_t dest1_read, dest2_read;
 	uint8_t dev_info1, dev_info2;
-	osDelay(500);
+
 	HAL_UART_Receive_IT(&huart3,ack_cfg_get.recv_buf,sizeof(ack_cfg_get.recv_buf));
 	HAL_UART_Transmit(&huart3,cmd_cfg_get,sizeof(cmd_cfg_get),1000);
   /* Infinite loop */
@@ -1033,7 +1053,7 @@ void FUNC_ZLG(void const * argument)
 					dest2_read = ack_cfg_get.recv_analy.dev_info[47];
 					dev_info1 = ack_cfg_get.recv_analy.status[1];
 					dev_info2 = ack_cfg_get.recv_analy.status[2];
-					if(channel_read != channel || addr1_read != board_num1 || addr2_read != board_num2 || dest1_read != 0 || dest2_read != 0 ||dev_type != 0)
+					if(channel_read != channel || addr1_read != board_num1 || addr2_read != board_num2 || dest1_read != addr1_coord || dest2_read != addr2_coord ||dev_type != 0)
 					{
 						cmd_cfg_set.send_set.local_addr[0] = addr1_read;
 						cmd_cfg_set.send_set.local_addr[1] = addr2_read;
@@ -1042,8 +1062,8 @@ void FUNC_ZLG(void const * argument)
 						cmd_cfg_set.send_set.dev_info[33] = channel;  //use channel 11
 						cmd_cfg_set.send_set.dev_info[36] = board_num1;  //local address high 8
 						cmd_cfg_set.send_set.dev_info[37] = board_num2;  //local address low 8
-						cmd_cfg_set.send_set.dev_info[46] = 0x00;  //remote address high 8
-						cmd_cfg_set.send_set.dev_info[47] = 0x00;  //remote address low 8
+						cmd_cfg_set.send_set.dev_info[46] = addr1_coord;  //remote address high 8
+						cmd_cfg_set.send_set.dev_info[47] = addr2_coord;  //remote address low 8
 						cmd_cfg_set.send_set.veri = calc_checksum(cmd_cfg_set.send_buf, sizeof(cmd_cfg_set.send_buf) - 1);
 						HAL_UART_Receive_IT(&huart3,ack_cfg_set,sizeof(ack_cfg_set));
 						HAL_UART_Transmit(&huart3,cmd_cfg_set.send_buf,sizeof(cmd_cfg_set.send_buf),1000);
@@ -1098,18 +1118,26 @@ void FUNC_CAPTURE(void const * argument)
 {
   /* USER CODE BEGIN FUNC_CAPTURE */
 	BaseType_t pdsem = pdFALSE;
-	unsigned int i,j,channel;
+	int i, j, k, channel;
 	uint16_t interval[30] = {0};
 	float Frequency = 0;
   float Temperature = 0;
 	float temp_log;
 	uint32_t sum = 0;
+	uint8_t count_sem = 0;
   /* Infinite loop */
   for(;;)
   {
 		pdsem = xSemaphoreTake(BinarySem_captureHandle,portMAX_DELAY);
 		if(pdsem == pdTRUE)
 		{
+			count_sem = uxSemaphoreGetCount(CountingSem_dmacpltHandle);
+			while(count_sem)
+			{
+				xSemaphoreTake(CountingSem_dmacpltHandle,portMAX_DELAY);
+				count_sem --;
+			}
+			
 			HAL_GPIO_WritePin(GPIO_SWITCH, GPIO_PIN_SWITCH, GPIO_PIN_SET);
 			HAL_Delay(20);
 			
@@ -1155,23 +1183,18 @@ void FUNC_CAPTURE(void const * argument)
 			
 			HAL_Delay(20);
 			
-			HAL_TIM_IC_Start_DMA(htim[6], TIM_CHANNEL[6], (uint32_t *)input_capture[6], dma_size);
-			HAL_TIM_IC_Start_DMA(htim[7], TIM_CHANNEL[7], (uint32_t *)input_capture[7], dma_size);
-			xSemaphoreTake(CountingSem_dmacpltHandle, 100 / portTICK_PERIOD_MS);
-			xSemaphoreTake(CountingSem_dmacpltHandle, 100 / portTICK_PERIOD_MS);
-			
-			HAL_TIM_IC_Start_DMA(htim[0], TIM_CHANNEL[0], (uint32_t *)input_capture[0], dma_size);
-			HAL_TIM_IC_Start_DMA(htim[1], TIM_CHANNEL[1], (uint32_t *)input_capture[1], dma_size);
-			HAL_TIM_IC_Start_DMA(htim[2], TIM_CHANNEL[2], (uint32_t *)input_capture[2], dma_size);
-			HAL_TIM_IC_Start_DMA(htim[3], TIM_CHANNEL[3], (uint32_t *)input_capture[3], dma_size);
-			HAL_TIM_IC_Start_DMA(htim[4], TIM_CHANNEL[4], (uint32_t *)input_capture[4], dma_size);
-			HAL_TIM_IC_Start_DMA(htim[5], TIM_CHANNEL[5], (uint32_t *)input_capture[5], dma_size);
-			xSemaphoreTake(CountingSem_dmacpltHandle, 100 / portTICK_PERIOD_MS);
-			xSemaphoreTake(CountingSem_dmacpltHandle, 100 / portTICK_PERIOD_MS);
-			xSemaphoreTake(CountingSem_dmacpltHandle, 100 / portTICK_PERIOD_MS);
-			xSemaphoreTake(CountingSem_dmacpltHandle, 100 / portTICK_PERIOD_MS);
-			xSemaphoreTake(CountingSem_dmacpltHandle, 100 / portTICK_PERIOD_MS);
-			xSemaphoreTake(CountingSem_dmacpltHandle, 100 / portTICK_PERIOD_MS);
+			for(k = 2;k < 8;k ++)
+			{
+				HAL_TIM_IC_Start_DMA(htim[k], TIM_CHANNEL[k], (uint32_t *)input_capture[k], dma_size);
+				xSemaphoreTake(CountingSem_dmacpltHandle, 100 / portTICK_PERIOD_MS);
+				HAL_TIM_IC_Stop_DMA(htim[k], TIM_CHANNEL[k]);
+				count_sem = uxSemaphoreGetCount(CountingSem_dmacpltHandle);
+				while(count_sem)
+				{
+					xSemaphoreTake(CountingSem_dmacpltHandle,portMAX_DELAY);
+					count_sem --;
+				}
+			}
 			
 			HAL_GPIO_WritePin(GPIO_SWITCH, GPIO_PIN_SWITCH, GPIO_PIN_RESET);
 			
@@ -1180,7 +1203,7 @@ void FUNC_CAPTURE(void const * argument)
 				sum = 0;
 				for(i = 1;i < dma_size - 1;i ++)
 				{
-					if (input_capture[channel][i + 1] > input_capture[channel][i])
+					if (input_capture[channel][i + 1] >= input_capture[channel][i])
 					{
 						interval[i] = input_capture[channel][i + 1] - input_capture[channel][i]; 
 					}
@@ -1241,7 +1264,17 @@ void FUNC_485(void const * argument)
 void Callback_timer1s(void const * argument)
 {
   /* USER CODE BEGIN Callback_timer1s */
-  
+	bat_count ++;
+	capture_count ++;
+	if(bat_count >= bat_interval)
+	{
+		bat_count = 0;
+	}
+	if(capture_count >= capture_interval)
+	{
+		capture_count = 0;
+		xSemaphoreGive(BinarySem_captureHandle);
+	}
   /* USER CODE END Callback_timer1s */
 }
 
