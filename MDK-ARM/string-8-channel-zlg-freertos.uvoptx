@@ -150,9 +150,9 @@
         <Bp>
           <Number>0</Number>
           <Type>0</Type>
-          <LineNumber>994</LineNumber>
+          <LineNumber>1228</LineNumber>
           <EnabledFlag>1</EnabledFlag>
-          <Address>134227560</Address>
+          <Address>134220826</Address>
           <ByteObject>0</ByteObject>
           <HtxType>0</HtxType>
           <ManyObjects>0</ManyObjects>
@@ -161,7 +161,7 @@
           <BreakIfRCount>1</BreakIfRCount>
           <Filename>../Src/main.c</Filename>
           <ExecCommand></ExecCommand>
-          <Expression>\\string_8_channel_zlg_freertos\../Src/main.c\994</Expression>
+          <Expression>\\string_8_channel_zlg_freertos\../Src/main.c\1228</Expression>
         </Bp>
       </Breakpoint>
       <WatchWindow1>

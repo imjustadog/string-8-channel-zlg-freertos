@@ -83,7 +83,6 @@ osSemaphoreId BinarySem_captureHandle;
 osSemaphoreId BinarySem_zlgHandle;
 osSemaphoreId BinarySem_485Handle;
 osSemaphoreId BinarySem_batHandle;
-osSemaphoreId CountingSem_dmacpltHandle;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
@@ -102,10 +101,9 @@ int bat_interval = 30;
 
 uint16_t input_capture[8][30];
 float avrg_freq[8];
-int dma_size = 12;
+int dma_size = 17;
 int capture_count = 0;
 int capture_interval = 3;
-
 
 GPIO_TypeDef* STRING_GPIO[8] = {
 	GPIOC, 
@@ -338,6 +336,43 @@ void write_to_data_buf(int num,uint16_t Freq, uint16_t Temp)
 	data_buf[3 + num * 5 + 4] = (uint8_t)(Temp&0x00ff);
 }
 
+void MEASUREMENT(int group)
+{
+	unsigned int i, j, k;
+	
+	i = 1800;	
+  while(i>=800)
+	{
+		j = i;
+		HAL_GPIO_WritePin(STRING_GPIO[group * 4], STRING_PIN[group * 4], GPIO_PIN_SET);  		
+		HAL_GPIO_WritePin(STRING_GPIO[group * 4 + 1], STRING_PIN[group * 4 + 1], GPIO_PIN_RESET); 
+		HAL_GPIO_WritePin(STRING_GPIO[group * 4 + 2], STRING_PIN[group * 4 + 2], GPIO_PIN_SET); 
+		HAL_GPIO_WritePin(STRING_GPIO[group * 4 + 3], STRING_PIN[group * 4 + 3], GPIO_PIN_RESET); 		
+		while(j)
+		{    
+				__nop();__nop();__nop();__nop();__nop();__nop();__nop();__nop();__nop();__nop();
+				j = j - 1;
+		}  
+		
+		j = i;
+		HAL_GPIO_WritePin(STRING_GPIO[group * 4], STRING_PIN[group * 4], GPIO_PIN_RESET); 	
+		HAL_GPIO_WritePin(STRING_GPIO[group * 4 + 1], STRING_PIN[group * 4 + 1], GPIO_PIN_SET); 
+		HAL_GPIO_WritePin(STRING_GPIO[group * 4 + 2], STRING_PIN[group * 4 + 2], GPIO_PIN_RESET); 
+		HAL_GPIO_WritePin(STRING_GPIO[group * 4 + 3], STRING_PIN[group * 4 + 3], GPIO_PIN_SET); 		
+		while(j)
+		{  
+			 __nop();__nop();__nop();__nop();__nop();__nop();__nop();__nop();__nop();__nop();
+			 j = j - 1;
+		}    
+		
+		i = i - 1; 
+	}   
+	HAL_GPIO_WritePin(STRING_GPIO[group * 4 + 1], STRING_PIN[group * 4 + 1], GPIO_PIN_RESET); 
+	HAL_GPIO_WritePin(STRING_GPIO[group * 4 + 3], STRING_PIN[group * 4 + 3], GPIO_PIN_RESET); 
+  HAL_Delay(20);	
+}
+
+
 void get_temperature()
 {
 	int i;
@@ -434,21 +469,12 @@ int main(void)
   osSemaphoreDef(BinarySem_bat);
   BinarySem_batHandle = osSemaphoreCreate(osSemaphore(BinarySem_bat), 1);
 
-  /* definition and creation of CountingSem_dmacplt */
-  osSemaphoreDef(CountingSem_dmacplt);
-  CountingSem_dmacpltHandle = osSemaphoreCreate(osSemaphore(CountingSem_dmacplt), 8);
-
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
 	xSemaphoreTake(BinarySem_captureHandle,portMAX_DELAY);
 	xSemaphoreTake(BinarySem_zlgHandle,portMAX_DELAY);
 	xSemaphoreTake(BinarySem_485Handle,portMAX_DELAY);
 	xSemaphoreTake(BinarySem_batHandle,portMAX_DELAY);
-	
-	for(i = 0;i < 8;i ++)
-	{
-		xSemaphoreTake(CountingSem_dmacpltHandle,portMAX_DELAY);
-	}
 	
   /* USER CODE END RTOS_SEMAPHORES */
 
@@ -871,28 +897,28 @@ static void MX_DMA_Init(void)
 
   /* DMA interrupt init */
   /* DMA1_Channel1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 5, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 4, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
   /* DMA1_Channel2_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 5, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 4, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
   /* DMA1_Channel3_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 5, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 4, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
   /* DMA1_Channel5_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 5, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 4, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
   /* DMA1_Channel6_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 5, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 4, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
   /* DMA1_Channel7_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, 5, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, 4, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel7_IRQn);
   /* DMA2_Channel1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Channel1_IRQn, 5, 0);
+  HAL_NVIC_SetPriority(DMA2_Channel1_IRQn, 4, 0);
   HAL_NVIC_EnableIRQ(DMA2_Channel1_IRQn);
   /* DMA2_Channel2_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Channel2_IRQn, 5, 0);
+  HAL_NVIC_SetPriority(DMA2_Channel2_IRQn, 4, 0);
   HAL_NVIC_EnableIRQ(DMA2_Channel2_IRQn);
 
 }
@@ -998,17 +1024,12 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	}
 }
 
-void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
-{
-	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-	xSemaphoreGiveFromISR(CountingSem_dmacpltHandle, &xHigherPriorityTaskWoken);
-	portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-}
 /* USER CODE END 4 */
 
 /* FUNC_BAT function */
 void FUNC_BAT(void const * argument)
 {
+
   /* USER CODE BEGIN 5 */
 	BaseType_t pdsem = pdFALSE;
   /* Infinite loop */
@@ -1118,83 +1139,32 @@ void FUNC_CAPTURE(void const * argument)
 {
   /* USER CODE BEGIN FUNC_CAPTURE */
 	BaseType_t pdsem = pdFALSE;
-	int i, j, k, channel;
+	int i, j, channel;
 	uint16_t interval[30] = {0};
 	float Frequency = 0;
   float Temperature = 0;
 	float temp_log;
 	uint32_t sum = 0;
-	uint8_t count_sem = 0;
+	int count = 0;
   /* Infinite loop */
   for(;;)
   {
 		pdsem = xSemaphoreTake(BinarySem_captureHandle,portMAX_DELAY);
 		if(pdsem == pdTRUE)
 		{
-			count_sem = uxSemaphoreGetCount(CountingSem_dmacpltHandle);
-			while(count_sem)
-			{
-				xSemaphoreTake(CountingSem_dmacpltHandle,portMAX_DELAY);
-				count_sem --;
-			}
-			
 			HAL_GPIO_WritePin(GPIO_SWITCH, GPIO_PIN_SWITCH, GPIO_PIN_SET);
 			HAL_Delay(20);
 			
-			i = 1800;	
-			while(i>=800)
-			{
-				j = i;
-				HAL_GPIO_WritePin(STRING_GPIO[0], STRING_PIN[0], GPIO_PIN_SET);
-				HAL_GPIO_WritePin(STRING_GPIO[1], STRING_PIN[1], GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(STRING_GPIO[2], STRING_PIN[2], GPIO_PIN_SET);
-				HAL_GPIO_WritePin(STRING_GPIO[3], STRING_PIN[3], GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(STRING_GPIO[4], STRING_PIN[4], GPIO_PIN_SET);
-				HAL_GPIO_WritePin(STRING_GPIO[5], STRING_PIN[5], GPIO_PIN_RESET);		
-				HAL_GPIO_WritePin(STRING_GPIO[6], STRING_PIN[6], GPIO_PIN_SET);
-				HAL_GPIO_WritePin(STRING_GPIO[7], STRING_PIN[7], GPIO_PIN_RESET);		
-				while(j)
-				{    
-						__nop();__nop();__nop();__nop();__nop();__nop();__nop();__nop();__nop();__nop();
-						j = j - 1;
-				}  
-				
-				j = i;
-				HAL_GPIO_WritePin(STRING_GPIO[0], STRING_PIN[0], GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(STRING_GPIO[1], STRING_PIN[1], GPIO_PIN_SET);
-				HAL_GPIO_WritePin(STRING_GPIO[2], STRING_PIN[2], GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(STRING_GPIO[3], STRING_PIN[3], GPIO_PIN_SET);
-				HAL_GPIO_WritePin(STRING_GPIO[4], STRING_PIN[4], GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(STRING_GPIO[5], STRING_PIN[5], GPIO_PIN_SET);	
-				HAL_GPIO_WritePin(STRING_GPIO[6], STRING_PIN[6], GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(STRING_GPIO[7], STRING_PIN[7], GPIO_PIN_SET);					
-				while(j)
-				{  
-					 __nop();__nop();__nop();__nop();__nop();__nop();__nop();__nop();__nop();__nop();
-					 j = j - 1;
-				}  
-				
-				i = i - 1; 
-			}
-			HAL_GPIO_WritePin(STRING_GPIO[1], STRING_PIN[1], GPIO_PIN_RESET);
-			HAL_GPIO_WritePin(STRING_GPIO[3], STRING_PIN[3], GPIO_PIN_RESET);
-			HAL_GPIO_WritePin(STRING_GPIO[5], STRING_PIN[5], GPIO_PIN_RESET);		
-			HAL_GPIO_WritePin(STRING_GPIO[7], STRING_PIN[7], GPIO_PIN_RESET);	
-			
-			HAL_Delay(20);
-			
-			for(k = 2;k < 8;k ++)
-			{
-				HAL_TIM_IC_Start_DMA(htim[k], TIM_CHANNEL[k], (uint32_t *)input_capture[k], dma_size);
-				xSemaphoreTake(CountingSem_dmacpltHandle, 100 / portTICK_PERIOD_MS);
-				HAL_TIM_IC_Stop_DMA(htim[k], TIM_CHANNEL[k]);
-				count_sem = uxSemaphoreGetCount(CountingSem_dmacpltHandle);
-				while(count_sem)
-				{
-					xSemaphoreTake(CountingSem_dmacpltHandle,portMAX_DELAY);
-					count_sem --;
-				}
-			}
+		  for(i = 0;i < 2;i ++)
+		  {
+			  MEASUREMENT(i);
+			  for(j = 0;j < 4;j ++)
+			  {
+					HAL_TIM_IC_Start_DMA(htim[i * 4 + j], TIM_CHANNEL[i * 4 + j], (uint32_t *)input_capture[i * 4 + j], dma_size);
+					HAL_Delay(40);
+					HAL_TIM_IC_Stop_DMA(htim[i * 4 + j], TIM_CHANNEL[i * 4 + j]);
+			  }
+		  }
 			
 			HAL_GPIO_WritePin(GPIO_SWITCH, GPIO_PIN_SWITCH, GPIO_PIN_RESET);
 			
