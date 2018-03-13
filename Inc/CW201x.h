@@ -1,5 +1,6 @@
 #ifndef _cw2015_battery_H_
 #define _cw2015_battery_H_
+
 #define	READ_CW2015				0xc5
 #define	WRITE_CW2015			0xc4
 
@@ -26,10 +27,14 @@
 #define BATTERY_UP_MAX_CHANGE   720             // the max time allow battery change quantity
 #define BATTERY_DOWN_MIN_CHANGE 60             // the min time allow battery change quantity when run
 #define BATTERY_DOWN_MIN_CHANGE_SLEEP 1800      // the min time allow battery change quantity when run 30min
-//#define BAT_LOW_INTERRUPT    1
-//#define CW2015_GET_RRT
+//****************************struct*********************************/
+typedef struct tagSTRUCT_CW_BATTERY {
+	unsigned char usb_online;
+	unsigned int capacity;
+	unsigned int voltage;
+	unsigned char alt;
+}STRUCT_CW_BATTERY;
 
-/*电池建模信息，客户拿到自己电池匹配的建模信息后请替换*/
 static unsigned char cw_bat_config_info[SIZE_BATINFO] = {
     0x14,0xA6,0x70,0x6C,0x6C,0x67,0x64,
     0x62,0x60,0x5C,0x59,0x4E,0x50,0x42,
@@ -40,21 +45,9 @@ static unsigned char cw_bat_config_info[SIZE_BATINFO] = {
     0x52,0x87,0x8F,0x91,0x94,0x52,0x82,
     0x8C,0x92,0x96,0x2B,0x59,0x6E,0xCB,
     0x2F,0x7D,0x72,0xA5,0xB5,0xC1,0x94,
-    0x99
-};
+    0x99};
 
-//****************************struct*********************************/
-typedef struct tagSTRUCT_CW_BATTERY {
-	unsigned int capacity;
-	unsigned int voltage;
-	unsigned char alt;
-}STRUCT_CW_BATTERY;
-
-int cw_bat_init(void);
+unsigned char cw_bat_init(void);
 void cw_bat_work(void);
 
 #endif
-
-
-
-

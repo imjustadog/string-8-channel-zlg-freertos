@@ -150,9 +150,9 @@
         <Bp>
           <Number>0</Number>
           <Type>0</Type>
-          <LineNumber>1228</LineNumber>
+          <LineNumber>445</LineNumber>
           <EnabledFlag>1</EnabledFlag>
-          <Address>134220826</Address>
+          <Address>134234610</Address>
           <ByteObject>0</ByteObject>
           <HtxType>0</HtxType>
           <ManyObjects>0</ManyObjects>
@@ -161,7 +161,23 @@
           <BreakIfRCount>1</BreakIfRCount>
           <Filename>../Src/main.c</Filename>
           <ExecCommand></ExecCommand>
-          <Expression>\\string_8_channel_zlg_freertos\../Src/main.c\1228</Expression>
+          <Expression>\\string_8_channel_zlg_freertos\../Src/main.c\445</Expression>
+        </Bp>
+        <Bp>
+          <Number>1</Number>
+          <Type>0</Type>
+          <LineNumber>207</LineNumber>
+          <EnabledFlag>1</EnabledFlag>
+          <Address>134232994</Address>
+          <ByteObject>0</ByteObject>
+          <HtxType>0</HtxType>
+          <ManyObjects>0</ManyObjects>
+          <SizeOfObject>0</SizeOfObject>
+          <BreakByAccess>0</BreakByAccess>
+          <BreakIfRCount>1</BreakIfRCount>
+          <Filename>..\Src\CW201x.c</Filename>
+          <ExecCommand></ExecCommand>
+          <Expression>\\string_8_channel_zlg_freertos\../Src/CW201x.c\207</Expression>
         </Bp>
       </Breakpoint>
       <WatchWindow1>
@@ -420,7 +436,7 @@
       <GroupNumber>2</GroupNumber>
       <FileNumber>16</FileNumber>
       <FileType>1</FileType>
-      <tvExp>0</tvExp>
+      <tvExp>1</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
       <PathWithFileName>..\Src\IIC.c</PathWithFileName>

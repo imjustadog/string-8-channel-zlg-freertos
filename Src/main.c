@@ -52,6 +52,7 @@
 
 /* USER CODE BEGIN Includes */
 #include <math.h>
+#include <string.h>
 #include "CW201x.h"
 /* USER CODE END Includes */
 
@@ -89,7 +90,7 @@ osSemaphoreId BinarySem_batHandle;
 /*********************** BATTERY *************************/	
 extern STRUCT_CW_BATTERY   cw_bat;
 int bat_count = 0;
-int bat_interval = 30;
+int bat_interval = 5;
 
 #define GPIO_BAT                      GPIOA
 #define GPIO_PIN_BAT1                 GPIO_PIN_10
@@ -300,6 +301,16 @@ int calc_checksum(uint8_t *buf, int len)
 	return checksum;
 }
 
+void read_bat()
+{
+	bat_count ++;
+	if(bat_count >= bat_interval)
+	{
+		bat_count = 0;
+		cw_bat_work();
+	}
+}
+
 void read_ID()
 {
 	int i;
@@ -338,7 +349,7 @@ void write_to_data_buf(int num,uint16_t Freq, uint16_t Temp)
 
 void MEASUREMENT(int group)
 {
-	unsigned int i, j, k;
+	unsigned int i, j;
 	
 	i = 1800;	
   while(i>=800)
@@ -391,7 +402,6 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
 	int ret;
-	int i;
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -441,9 +451,7 @@ int main(void)
 
   /* USER CODE BEGIN 2 */
 	HAL_Delay(200);
-	
   ret = cw_bat_init();
-	
 	read_ID();
 	cw_bat_work();
   /* USER CODE END 2 */
@@ -474,7 +482,6 @@ int main(void)
 	xSemaphoreTake(BinarySem_captureHandle,portMAX_DELAY);
 	xSemaphoreTake(BinarySem_zlgHandle,portMAX_DELAY);
 	xSemaphoreTake(BinarySem_485Handle,portMAX_DELAY);
-	xSemaphoreTake(BinarySem_batHandle,portMAX_DELAY);
 	
   /* USER CODE END RTOS_SEMAPHORES */
 
@@ -942,11 +949,11 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4|GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9 
-                          |GPIO_PIN_10|GPIO_PIN_11|GPIO_PIN_15, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4|GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_11 
+                          |GPIO_PIN_15, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5|GPIO_PIN_9|GPIO_PIN_10, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_SET);
@@ -1034,9 +1041,34 @@ void FUNC_BAT(void const * argument)
 	BaseType_t pdsem = pdFALSE;
   /* Infinite loop */
   for(;;)
-  {
-		pdsem = xSemaphoreTake(BinarySem_batHandle, 500 / portTICK_PERIOD_MS);
-		HAL_GPIO_TogglePin(GPIO_BAT, GPIO_PIN_BAT1);
+  {			
+		if(cw_bat.voltage == 0)
+		{
+			HAL_GPIO_TogglePin(GPIO_BAT, GPIO_PIN_BAT1);
+			HAL_GPIO_TogglePin(GPIO_BAT, GPIO_PIN_BAT2);
+			osDelay(250);
+			HAL_GPIO_TogglePin(GPIO_BAT, GPIO_PIN_BAT1);
+			HAL_GPIO_TogglePin(GPIO_BAT, GPIO_PIN_BAT2);
+		}
+		else
+		{
+			if(cw_bat.capacity >= 66)
+			{
+				HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT1, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT2, GPIO_PIN_RESET);
+			}
+			else if(cw_bat.capacity >= 33)
+			{
+				HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT1, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT2, GPIO_PIN_SET);
+			}
+			else
+			{
+				HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT1, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT2, GPIO_PIN_SET);
+			}
+		}
+		osDelay(250);
   }
   /* USER CODE END 5 */ 
 }
@@ -1145,7 +1177,6 @@ void FUNC_CAPTURE(void const * argument)
   float Temperature = 0;
 	float temp_log;
 	uint32_t sum = 0;
-	int count = 0;
   /* Infinite loop */
   for(;;)
   {
@@ -1197,6 +1228,10 @@ void FUNC_CAPTURE(void const * argument)
 				write_to_data_buf(i,(uint16_t)(Frequency),(uint16_t)(Temperature));	
 			}
 			
+			read_bat();
+			data_buf[43] = cw_bat.voltage;
+			data_buf[44] = cw_bat.capacity;
+			
 			HAL_UART_Transmit(&huart3,data_buf,sizeof(data_buf),1000);
 			//show_485(data_buf, sizeof(data_buf));
 		}
@@ -1234,12 +1269,7 @@ void FUNC_485(void const * argument)
 void Callback_timer1s(void const * argument)
 {
   /* USER CODE BEGIN Callback_timer1s */
-	bat_count ++;
 	capture_count ++;
-	if(bat_count >= bat_interval)
-	{
-		bat_count = 0;
-	}
 	if(capture_count >= capture_interval)
 	{
 		capture_count = 0;
