@@ -79,7 +79,7 @@ osThreadId TASK_BATHandle;
 osThreadId TASK_ZLGHandle;
 osThreadId TASK_CAPTUREHandle;
 osThreadId TASK_485Handle;
-osTimerId Timer1sHandle;
+osTimerId TimerCaptureHandle;
 osSemaphoreId BinarySem_captureHandle;
 osSemaphoreId BinarySem_zlgHandle;
 osSemaphoreId BinarySem_485Handle;
@@ -277,7 +277,7 @@ void FUNC_BAT(void const * argument);
 void FUNC_ZLG(void const * argument);
 void FUNC_CAPTURE(void const * argument);
 void FUNC_485(void const * argument);
-void Callback_timer1s(void const * argument);
+void Callback_timercapture(void const * argument);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -285,6 +285,43 @@ void Callback_timer1s(void const * argument);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+void set_led()
+{
+		if(cw_bat.voltage == 0)
+		{
+			HAL_GPIO_TogglePin(GPIO_BAT, GPIO_PIN_BAT1);
+			HAL_GPIO_TogglePin(GPIO_BAT, GPIO_PIN_BAT2);
+		}
+		else
+		{
+			if(cw_bat.capacity >= 80)
+			{
+				HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT1, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT2, GPIO_PIN_RESET);
+			}
+			else if(cw_bat.capacity >= 60)
+			{
+				HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT1, GPIO_PIN_RESET);
+				HAL_GPIO_TogglePin(GPIO_BAT, GPIO_PIN_BAT2);
+			}
+			else if(cw_bat.capacity >= 40)
+			{
+				HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT1, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT2, GPIO_PIN_SET);
+			}
+			else if(cw_bat.capacity >= 20)
+			{
+				HAL_GPIO_TogglePin(GPIO_BAT, GPIO_PIN_BAT1);
+				HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT2, GPIO_PIN_SET);
+			}
+			else
+			{
+				HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT1, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT2, GPIO_PIN_SET);
+			}
+		}
+}
+
 void show_485(uint8_t *buf, int len)
 {
 	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_2, GPIO_PIN_SET); // 485 SEND ENABLE
@@ -450,10 +487,12 @@ int main(void)
   MX_TIM8_Init();
 
   /* USER CODE BEGIN 2 */
-	HAL_Delay(200);
+	HAL_GPIO_WritePin(GPIO_SWITCH, GPIO_PIN_SWITCH, GPIO_PIN_SET);
   ret = cw_bat_init();
 	read_ID();
 	cw_bat_work();
+	set_led();
+	HAL_Delay(200);
   /* USER CODE END 2 */
 
   /* USER CODE BEGIN RTOS_MUTEX */
@@ -486,13 +525,13 @@ int main(void)
   /* USER CODE END RTOS_SEMAPHORES */
 
   /* Create the timer(s) */
-  /* definition and creation of Timer1s */
-  osTimerDef(Timer1s, Callback_timer1s);
-  Timer1sHandle = osTimerCreate(osTimer(Timer1s), osTimerPeriodic, NULL);
+  /* definition and creation of TimerCapture */
+  osTimerDef(TimerCapture, Callback_timercapture);
+  TimerCaptureHandle = osTimerCreate(osTimer(TimerCapture), osTimerPeriodic, NULL);
 
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
-	osTimerStart(Timer1sHandle,1000);
+	osTimerStart(TimerCaptureHandle,4000);
   /* USER CODE END RTOS_TIMERS */
 
   /* Create the thread(s) */
@@ -1042,32 +1081,7 @@ void FUNC_BAT(void const * argument)
   /* Infinite loop */
   for(;;)
   {			
-		if(cw_bat.voltage == 0)
-		{
-			HAL_GPIO_TogglePin(GPIO_BAT, GPIO_PIN_BAT1);
-			HAL_GPIO_TogglePin(GPIO_BAT, GPIO_PIN_BAT2);
-			osDelay(250);
-			HAL_GPIO_TogglePin(GPIO_BAT, GPIO_PIN_BAT1);
-			HAL_GPIO_TogglePin(GPIO_BAT, GPIO_PIN_BAT2);
-		}
-		else
-		{
-			if(cw_bat.capacity >= 66)
-			{
-				HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT1, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT2, GPIO_PIN_RESET);
-			}
-			else if(cw_bat.capacity >= 33)
-			{
-				HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT1, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT2, GPIO_PIN_SET);
-			}
-			else
-			{
-				HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT1, GPIO_PIN_SET);
-				HAL_GPIO_WritePin(GPIO_BAT, GPIO_PIN_BAT2, GPIO_PIN_SET);
-			}
-		}
+		//set_led();
 		osDelay(250);
   }
   /* USER CODE END 5 */ 
@@ -1183,11 +1197,12 @@ void FUNC_CAPTURE(void const * argument)
 		pdsem = xSemaphoreTake(BinarySem_captureHandle,portMAX_DELAY);
 		if(pdsem == pdTRUE)
 		{
-			HAL_GPIO_WritePin(GPIO_SWITCH, GPIO_PIN_SWITCH, GPIO_PIN_SET);
-			HAL_Delay(20);
+			//HAL_GPIO_WritePin(GPIO_SWITCH, GPIO_PIN_SWITCH, GPIO_PIN_SET);
+			//HAL_Delay(20);
 			
 		  for(i = 0;i < 2;i ++)
 		  {
+				set_led();
 			  MEASUREMENT(i);
 			  for(j = 0;j < 4;j ++)
 			  {
@@ -1197,7 +1212,7 @@ void FUNC_CAPTURE(void const * argument)
 			  }
 		  }
 			
-			HAL_GPIO_WritePin(GPIO_SWITCH, GPIO_PIN_SWITCH, GPIO_PIN_RESET);
+			//HAL_GPIO_WritePin(GPIO_SWITCH, GPIO_PIN_SWITCH, GPIO_PIN_RESET);
 			
 			for(channel = 0; channel < 8; channel ++)
 			{
@@ -1228,7 +1243,6 @@ void FUNC_CAPTURE(void const * argument)
 				write_to_data_buf(i,(uint16_t)(Frequency),(uint16_t)(Temperature));	
 			}
 			
-			read_bat();
 			data_buf[43] = cw_bat.voltage;
 			data_buf[44] = cw_bat.capacity;
 			
@@ -1265,17 +1279,13 @@ void FUNC_485(void const * argument)
   /* USER CODE END FUNC_485 */
 }
 
-/* Callback_timer1s function */
-void Callback_timer1s(void const * argument)
+/* Callback_timercapture function */
+void Callback_timercapture(void const * argument)
 {
-  /* USER CODE BEGIN Callback_timer1s */
-	capture_count ++;
-	if(capture_count >= capture_interval)
-	{
-		capture_count = 0;
-		xSemaphoreGive(BinarySem_captureHandle);
-	}
-  /* USER CODE END Callback_timer1s */
+  /* USER CODE BEGIN Callback_timercapture */
+	read_bat();
+  xSemaphoreGive(BinarySem_captureHandle);
+  /* USER CODE END Callback_timercapture */
 }
 
 /**
