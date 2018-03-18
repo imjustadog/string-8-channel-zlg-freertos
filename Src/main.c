@@ -79,18 +79,22 @@ osThreadId TASK_BATHandle;
 osThreadId TASK_ZLGHandle;
 osThreadId TASK_CAPTUREHandle;
 osThreadId TASK_485Handle;
+osThreadId TASK_STIMULATEHandle;
 osTimerId TimerCaptureHandle;
 osSemaphoreId BinarySem_captureHandle;
 osSemaphoreId BinarySem_zlgHandle;
 osSemaphoreId BinarySem_485Handle;
 osSemaphoreId BinarySem_batHandle;
+osSemaphoreId BinarySem_stimulateHandle;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
+#define TIMER_INTERVAL 200
+
 /*********************** BATTERY *************************/	
 extern STRUCT_CW_BATTERY   cw_bat;
 int bat_count = 0;
-int bat_interval = 5;
+int bat_interval = 20;
 
 #define GPIO_BAT                      GPIOA
 #define GPIO_PIN_BAT1                 GPIO_PIN_10
@@ -104,7 +108,7 @@ uint16_t input_capture[8][30];
 float avrg_freq[8];
 int dma_size = 17;
 int capture_count = 0;
-int capture_interval = 3;
+int capture_interval = 4;
 
 GPIO_TypeDef* STRING_GPIO[8] = {
 	GPIOC, 
@@ -277,6 +281,7 @@ void FUNC_BAT(void const * argument);
 void FUNC_ZLG(void const * argument);
 void FUNC_CAPTURE(void const * argument);
 void FUNC_485(void const * argument);
+void FUNC_STIMULATE(void const * argument);
 void Callback_timercapture(void const * argument);
 
 /* USER CODE BEGIN PFP */
@@ -465,6 +470,9 @@ int main(void)
 	cmd_reset[1] = 0xBC;
 	cmd_reset[2] = 0xCD;
 	cmd_reset[3] = 0xD9;
+	
+	capture_interval = capture_interval * 1000 / TIMER_INTERVAL;
+	bat_interval = bat_interval * 1000 / TIMER_INTERVAL;
 
   /* USER CODE END Init */
 
@@ -516,11 +524,16 @@ int main(void)
   osSemaphoreDef(BinarySem_bat);
   BinarySem_batHandle = osSemaphoreCreate(osSemaphore(BinarySem_bat), 1);
 
+  /* definition and creation of BinarySem_stimulate */
+  osSemaphoreDef(BinarySem_stimulate);
+  BinarySem_stimulateHandle = osSemaphoreCreate(osSemaphore(BinarySem_stimulate), 1);
+
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
 	xSemaphoreTake(BinarySem_captureHandle,portMAX_DELAY);
 	xSemaphoreTake(BinarySem_zlgHandle,portMAX_DELAY);
 	xSemaphoreTake(BinarySem_485Handle,portMAX_DELAY);
+	xSemaphoreTake(BinarySem_stimulateHandle,portMAX_DELAY);
 	
   /* USER CODE END RTOS_SEMAPHORES */
 
@@ -531,25 +544,29 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
-	osTimerStart(TimerCaptureHandle,4000);
+	osTimerStart(TimerCaptureHandle,TIMER_INTERVAL);
   /* USER CODE END RTOS_TIMERS */
 
   /* Create the thread(s) */
   /* definition and creation of TASK_BAT */
-  osThreadDef(TASK_BAT, FUNC_BAT, osPriorityLow, 0, 128);
+  osThreadDef(TASK_BAT, FUNC_BAT, osPriorityNormal, 0, 128);
   TASK_BATHandle = osThreadCreate(osThread(TASK_BAT), NULL);
 
   /* definition and creation of TASK_ZLG */
-  osThreadDef(TASK_ZLG, FUNC_ZLG, osPriorityNormal, 0, 128);
+  osThreadDef(TASK_ZLG, FUNC_ZLG, osPriorityHigh, 0, 128);
   TASK_ZLGHandle = osThreadCreate(osThread(TASK_ZLG), NULL);
 
   /* definition and creation of TASK_CAPTURE */
-  osThreadDef(TASK_CAPTURE, FUNC_CAPTURE, osPriorityBelowNormal, 0, 128);
+  osThreadDef(TASK_CAPTURE, FUNC_CAPTURE, osPriorityLow, 0, 128);
   TASK_CAPTUREHandle = osThreadCreate(osThread(TASK_CAPTURE), NULL);
 
   /* definition and creation of TASK_485 */
-  osThreadDef(TASK_485, FUNC_485, osPriorityNormal, 0, 128);
+  osThreadDef(TASK_485, FUNC_485, osPriorityHigh, 0, 128);
   TASK_485Handle = osThreadCreate(osThread(TASK_485), NULL);
+
+  /* definition and creation of TASK_STIMULATE */
+  osThreadDef(TASK_STIMULATE, FUNC_STIMULATE, osPriorityAboveNormal, 0, 128);
+  TASK_STIMULATEHandle = osThreadCreate(osThread(TASK_STIMULATE), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -1081,8 +1098,11 @@ void FUNC_BAT(void const * argument)
   /* Infinite loop */
   for(;;)
   {			
-		//set_led();
-		osDelay(250);
+		pdsem = xSemaphoreTake(BinarySem_batHandle,portMAX_DELAY);
+		if(pdsem == pdTRUE)
+		{
+			read_bat();
+		}
   }
   /* USER CODE END 5 */ 
 }
@@ -1200,17 +1220,7 @@ void FUNC_CAPTURE(void const * argument)
 			//HAL_GPIO_WritePin(GPIO_SWITCH, GPIO_PIN_SWITCH, GPIO_PIN_SET);
 			//HAL_Delay(20);
 			
-		  for(i = 0;i < 2;i ++)
-		  {
-				set_led();
-			  MEASUREMENT(i);
-			  for(j = 0;j < 4;j ++)
-			  {
-					HAL_TIM_IC_Start_DMA(htim[i * 4 + j], TIM_CHANNEL[i * 4 + j], (uint32_t *)input_capture[i * 4 + j], dma_size);
-					HAL_Delay(40);
-					HAL_TIM_IC_Stop_DMA(htim[i * 4 + j], TIM_CHANNEL[i * 4 + j]);
-			  }
-		  }
+			xSemaphoreGive(BinarySem_stimulateHandle);
 			
 			//HAL_GPIO_WritePin(GPIO_SWITCH, GPIO_PIN_SWITCH, GPIO_PIN_RESET);
 			
@@ -1279,12 +1289,50 @@ void FUNC_485(void const * argument)
   /* USER CODE END FUNC_485 */
 }
 
+/* FUNC_STIMULATE function */
+void FUNC_STIMULATE(void const * argument)
+{
+  /* USER CODE BEGIN FUNC_STIMULATE */
+	BaseType_t pdsem = pdFALSE;
+	int i, j;
+  /* Infinite loop */
+  for(;;)
+  {
+		pdsem = xSemaphoreTake(BinarySem_stimulateHandle,portMAX_DELAY);
+		if(pdsem == pdTRUE) 
+    {
+			for(i = 0;i < 2;i ++)
+		  {
+			  MEASUREMENT(i);
+			  for(j = 0;j < 4;j ++)
+			  {
+					HAL_TIM_IC_Start_DMA(htim[i * 4 + j], TIM_CHANNEL[i * 4 + j], (uint32_t *)input_capture[i * 4 + j], dma_size);
+					HAL_Delay(40);
+					HAL_TIM_IC_Stop_DMA(htim[i * 4 + j], TIM_CHANNEL[i * 4 + j]);
+			  }
+		  }
+		}
+  }
+  /* USER CODE END FUNC_STIMULATE */
+}
+
 /* Callback_timercapture function */
 void Callback_timercapture(void const * argument)
 {
   /* USER CODE BEGIN Callback_timercapture */
-	read_bat();
-  xSemaphoreGive(BinarySem_captureHandle);
+	bat_count ++;
+	capture_count ++;
+	set_led();
+	if(bat_count == bat_interval)
+	{
+		bat_count = 0;
+		xSemaphoreGive(BinarySem_batHandle);
+	}
+	if(capture_count == capture_interval)
+	{
+		capture_count = 0;
+		xSemaphoreGive(BinarySem_captureHandle);
+	}
   /* USER CODE END Callback_timercapture */
 }
 
