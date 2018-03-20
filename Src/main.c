@@ -190,7 +190,7 @@ uint8_t data_buf[46] = {
 	0,0,       //bat high, bat low
   'E'};
 
-uint8_t reply_buf[36] = {
+uint8_t reply_buf[46] = {
 	'S',
 	0,0,//ID
 	0,0,0,0,
@@ -200,6 +200,9 @@ uint8_t reply_buf[36] = {
 	0,0,0,0,
 	0,0,0,0,
 	0,0,0,0,
+	0,0,0,0,
+	0,0,0,0,
+	0,0,
 	0xff,
 	0xff,
 	0x00,
@@ -530,9 +533,9 @@ int main(void)
 	cw_bat_work();
 	set_led();
 	
-	//if(read_flash() != 'Z')
-	//	Device_State = DEVICE_RUN;
-	//else Device_State = DEVICE_SLEEP;
+	if(read_flash() != 'Z')
+		Device_State = DEVICE_RUN;
+	else Device_State = DEVICE_SLEEP;
 	
 	HAL_Delay(200);
   /* USER CODE END 2 */
@@ -1234,16 +1237,16 @@ void FUNC_ZLG(void const * argument)
 						if(order_buf[16] == 0xff)
 					  {
 							mode = 'R';
-							reply_buf[32] = 0xff;
-						  reply_buf[33] = 0;
-							reply_buf[34] = 0xff;
+							reply_buf[42] = 0xff;
+						  reply_buf[43] = 0;
+							reply_buf[44] = 0xff;
 						}
 						else if(order_buf[26] == 0)
 						{
 							mode = 'Z';
-							reply_buf[32] = 0x55;
-							reply_buf[33] = 0;
-							reply_buf[34] = 0;
+							reply_buf[42] = 0x55;
+							reply_buf[43] = 0;
+							reply_buf[44] = 0;
 						}		
 						HAL_UART_Transmit(&huart3,reply_buf,sizeof(reply_buf),1000);						
 				    if(mode == 'R')
