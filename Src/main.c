@@ -90,7 +90,7 @@ osSemaphoreId BinarySem_stimulateHandle;
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 #define TIMER_INTERVAL 200
-
+#define FLASH_START_ADDR  0X08070000
 /*********************** BATTERY *************************/	
 extern STRUCT_CW_BATTERY   cw_bat;
 int bat_count = 0;
@@ -208,6 +208,14 @@ uint8_t reply_buf[36] = {
 
 uint8_t order_buf[35];
 	
+typedef enum
+{
+	DEVICE_RUN,
+	DEVICE_SLEEP
+}Device_StateTypeDef;
+
+Device_StateTypeDef Device_State = DEVICE_RUN;
+	
 /************************* UART ***************************/	
 	
 uint8_t data_zlg;
@@ -290,6 +298,27 @@ void Callback_timercapture(void const * argument);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+void write_flash(uint16_t dat)
+{
+	FLASH_EraseInitTypeDef f;
+	uint32_t PageError = 0;
+	
+	HAL_FLASH_Unlock();
+	f.TypeErase = FLASH_TYPEERASE_PAGES;
+	f.PageAddress = FLASH_START_ADDR;
+	f.NbPages = 1;
+	HAL_FLASHEx_Erase(&f, &PageError);
+	
+	HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD, FLASH_START_ADDR, dat);
+}
+
+uint16_t read_flash()
+{
+	uint16_t value;
+	value = *(uint16_t*)(FLASH_START_ADDR);
+	return value;
+}
+
 void set_led()
 {
 		if(cw_bat.voltage == 0)
@@ -500,6 +529,11 @@ int main(void)
 	read_ID();
 	cw_bat_work();
 	set_led();
+	
+	//if(read_flash() != 'Z')
+	//	Device_State = DEVICE_RUN;
+	//else Device_State = DEVICE_SLEEP;
+	
 	HAL_Delay(200);
   /* USER CODE END 2 */
 
@@ -1112,6 +1146,7 @@ void FUNC_ZLG(void const * argument)
 {
   /* USER CODE BEGIN FUNC_ZLG */
 	BaseType_t pdsem = pdFALSE;
+	char mode;
 	uint8_t dev_type;
 	uint8_t channel_read;
 	uint8_t addr1_read, addr2_read;
@@ -1186,6 +1221,42 @@ void FUNC_ZLG(void const * argument)
 				}
 				case WAITFORCMD:
 				{
+					if(order_buf[11] == board_num1 && order_buf[12] == board_num2)
+					{
+						/*if(order_buf[18] != 0xff)
+						{
+							capture_interval = order_buf[18];
+							capture_interval = capture_interval * 1000 / TIMER_INTERVAL;
+							reply_buf[32] = 0;
+							reply_buf[33] = 0;
+							reply_buf[34] = 0x55;
+						}*/
+						if(order_buf[16] == 0xff)
+					  {
+							mode = 'R';
+							reply_buf[32] = 0xff;
+						  reply_buf[33] = 0;
+							reply_buf[34] = 0xff;
+						}
+						else if(order_buf[26] == 0)
+						{
+							mode = 'Z';
+							reply_buf[32] = 0x55;
+							reply_buf[33] = 0;
+							reply_buf[34] = 0;
+						}		
+						HAL_UART_Transmit(&huart3,reply_buf,sizeof(reply_buf),1000);						
+				    if(mode == 'R')
+						{
+							Device_State = DEVICE_RUN;
+							write_flash('R');
+						}
+						else if(mode == 'Z')
+						{
+					    Device_State = DEVICE_SLEEP;
+							write_flash('Z');
+						}
+					}
 					HAL_UART_Receive_IT(&huart3,order_buf,sizeof(order_buf));
 					break;
 				}
@@ -1205,7 +1276,7 @@ void FUNC_CAPTURE(void const * argument)
 {
   /* USER CODE BEGIN FUNC_CAPTURE */
 	BaseType_t pdsem = pdFALSE;
-	int i, j, channel;
+	int i, channel;
 	uint16_t interval[30] = {0};
 	float Frequency = 0;
   float Temperature = 0;
@@ -1331,7 +1402,8 @@ void Callback_timercapture(void const * argument)
 	if(capture_count == capture_interval)
 	{
 		capture_count = 0;
-		xSemaphoreGive(BinarySem_captureHandle);
+		if(Device_State == DEVICE_RUN)
+			xSemaphoreGive(BinarySem_captureHandle);
 	}
   /* USER CODE END Callback_timercapture */
 }
