@@ -232,8 +232,8 @@ uint8_t rxbuf_485[100];
 /*********************** ZLG 5168 *************************/	
 
 uint8_t channel = 11;
-uint8_t addr1_coord = 0xFF;
-uint8_t addr2_coord = 0xFF;
+uint8_t addr1_coord = 0x80;
+uint8_t addr2_coord = 0x00;
 	
 enum{
 	GET_INFO = 0,
