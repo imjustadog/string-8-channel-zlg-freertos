@@ -271,7 +271,7 @@ I (../Middlewares/Third_Party/FreeRTOS/Source/include/semphr.h)(0x5993BFD7)
 I (../Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h)(0x5993BFD7)
 I (C:\Keil_v5\ARM\ARMCC\include\math.h)(0x588B8344)
 I (C:\Keil_v5\ARM\ARMCC\include\string.h)(0x588B8344)
-I (../Inc/CW201x.h)(0x5AA77FAC)
+I (../Inc/CW201x.h)(0x5AF4E8D9)
 F (../Src/stm32f1xx_hal_msp.c)(0x5AADDCAC)(-c --cpu Cortex-M3 -D__MICROLIB -g -O3 --apcs=interwork --split_sections -I ../Inc -I ../Drivers/STM32F1xx_HAL_Driver/Inc -I ../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I ../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM3 -I ../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I ../Middlewares/Third_Party/FreeRTOS/Source/include -I ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS -I ../Drivers/CMSIS/Include --C99-I.\RTE\_string-8-channel-zlg-freertos-IC:\Keil_v5\ARM\PACK\ARM\CMSIS\5.0.1\CMSIS\Include-IC:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.2.0\Device\Include-D__UVISION_VERSION="524" -D_RTE_ -DSTM32F10X_HD -DUSE_HAL_DRIVER -DSTM32F103xE-o string-8-channel-zlg-freertos\stm32f1xx_hal_msp.o --omf_browse string-8-channel-zlg-freertos\stm32f1xx_hal_msp.crf --depend string-8-channel-zlg-freertos\stm32f1xx_hal_msp.d)
 I (../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h)(0x5993BFCB)
 I (../Inc/stm32f1xx_hal_conf.h)(0x5AADDCAD)
@@ -302,7 +302,7 @@ I (../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim.h)(0x5993BFCB)
 I (../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim_ex.h)(0x5993BFCB)
 I (../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_uart.h)(0x5993BFCB)
 F (..\Src\CW201x.c)(0x5AA77FAC)(-c --cpu Cortex-M3 -D__MICROLIB -g -O3 --apcs=interwork --split_sections -I ../Inc -I ../Drivers/STM32F1xx_HAL_Driver/Inc -I ../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I ../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM3 -I ../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I ../Middlewares/Third_Party/FreeRTOS/Source/include -I ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS -I ../Drivers/CMSIS/Include --C99-I.\RTE\_string-8-channel-zlg-freertos-IC:\Keil_v5\ARM\PACK\ARM\CMSIS\5.0.1\CMSIS\Include-IC:\Keil_v5\ARM\PACK\Keil\STM32F1xx_DFP\2.2.0\Device\Include-D__UVISION_VERSION="524" -D_RTE_ -DSTM32F10X_HD -DUSE_HAL_DRIVER -DSTM32F103xE-o string-8-channel-zlg-freertos\cw201x.o --omf_browse string-8-channel-zlg-freertos\cw201x.crf --depend string-8-channel-zlg-freertos\cw201x.d)
-I (../Inc/CW201x.h)(0x5AA77FAC)
+I (../Inc/CW201x.h)(0x5AF4E8D9)
 I (../Inc/IIC.h)(0x5AA77FAC)
 I (../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h)(0x5993BFCB)
 I (../Inc/stm32f1xx_hal_conf.h)(0x5AADDCAD)
