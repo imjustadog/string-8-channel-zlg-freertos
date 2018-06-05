@@ -4,3 +4,4 @@
 4、计时器重装值一定是65535，不管up还是down
 5、串口中断给信号量一定是在cpltcallback，因为一个字符进一次irq
 6、协调器不能用ffff当地址
+7、TIMER_TASK_PRIORITY越大，优先级越高

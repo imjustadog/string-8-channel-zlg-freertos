@@ -104,11 +104,11 @@ int bat_interval = 20;
 #define GPIO_SWITCH                   GPIOA
 #define GPIO_PIN_SWITCH               GPIO_PIN_4
 
-uint16_t input_capture[8][30];
+uint16_t input_capture[8][50];
 float avrg_freq[8];
 int dma_size = 17;
 int capture_count = 0;
-int capture_interval = 4;
+int capture_interval = 3;
 
 GPIO_TypeDef* STRING_GPIO[8] = {
 	GPIOC, 
@@ -424,9 +424,29 @@ void write_to_data_buf(int num,uint16_t Freq, uint16_t Temp)
 void MEASUREMENT(int group)
 {
 	unsigned int i, j;
+	unsigned int k;
 	
-	i = 1800;	
-  while(i>=800)
+	/*72Mhz
+	i=
+	5000---420hz
+	4000---526hz
+	3000---700hz
+	2000---1064hz
+	1000---2174hz
+	800----2632hz
+	700----3030hz
+	*/
+	
+	/*32Mhz
+	2200---495hz
+	2000---543hz
+	800----1389hz
+	400----2778hz
+	300----3571hz
+	*/
+	
+	i = 2150;	//510hz
+  while(i>=350) //2941hz
 	{
 		j = i;
 		HAL_GPIO_WritePin(STRING_GPIO[group * 4], STRING_PIN[group * 4], GPIO_PIN_SET);  		
@@ -449,8 +469,8 @@ void MEASUREMENT(int group)
 			 __nop();__nop();__nop();__nop();__nop();__nop();__nop();__nop();__nop();__nop();
 			 j = j - 1;
 		}    
-		
-		i = i - 1; 
+		//k = k - 1;
+		i = i - 3; 
 	}   
 	HAL_GPIO_WritePin(STRING_GPIO[group * 4 + 1], STRING_PIN[group * 4 + 1], GPIO_PIN_RESET); 
 	HAL_GPIO_WritePin(STRING_GPIO[group * 4 + 3], STRING_PIN[group * 4 + 3], GPIO_PIN_RESET); 
@@ -643,12 +663,13 @@ void SystemClock_Config(void)
 
     /**Initializes the CPU, AHB and APB busses clocks 
     */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = 16;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI_DIV2;
-  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL6;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL4;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
@@ -663,7 +684,7 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
@@ -1280,11 +1301,11 @@ void FUNC_CAPTURE(void const * argument)
   /* USER CODE BEGIN FUNC_CAPTURE */
 	BaseType_t pdsem = pdFALSE;
 	int i, channel;
-	uint16_t interval[30] = {0};
+	uint16_t interval[50] = {0};
 	float Frequency = 0;
   float Temperature = 0;
 	float temp_log;
-	uint32_t sum = 0;
+	float sum = 0;
   /* Infinite loop */
   for(;;)
   {
@@ -1320,7 +1341,7 @@ void FUNC_CAPTURE(void const * argument)
 		
 			for(i = 0;i < 8; i ++)
 			{
-				Frequency=240000000.0f/avrg_freq[i] + 0.5f;
+				Frequency=320000000.0f/avrg_freq[i] + 0.5f;
 				Temperature = adcbuf[i];
 				temp_log = log(Temperature * 4.5185f);
 				Temperature = (1.0f / (A + B * temp_log + C * temp_log * temp_log * temp_log) - 273.2f) * 100.0f; 
