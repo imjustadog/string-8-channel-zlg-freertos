@@ -375,16 +375,6 @@ int calc_checksum(uint8_t *buf, int len)
 	return checksum;
 }
 
-void read_bat()
-{
-	bat_count ++;
-	if(bat_count >= bat_interval)
-	{
-		bat_count = 0;
-		cw_bat_work();
-	}
-}
-
 void read_ID()
 {
 	int i;
@@ -1159,7 +1149,7 @@ void FUNC_BAT(void const * argument)
 		pdsem = xSemaphoreTake(BinarySem_batHandle,portMAX_DELAY);
 		if(pdsem == pdTRUE)
 		{
-			read_bat();
+			cw_bat_work();
 		}
   }
   /* USER CODE END 5 */ 
@@ -1352,7 +1342,7 @@ void FUNC_CAPTURE(void const * argument)
 			data_buf[44] = cw_bat.capacity;
 			
 			HAL_UART_Transmit(&huart3,data_buf,sizeof(data_buf),1000);
-			//show_485(data_buf, sizeof(data_buf));
+			show_485(data_buf, sizeof(data_buf));
 		}
   }
   /* USER CODE END FUNC_CAPTURE */
